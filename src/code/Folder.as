@@ -6,7 +6,7 @@ package code
 	 * ...
 	 * @author Larry H.
 	 */
-	public class Fold
+	public class Folder
 	{		
 		private var _fold:File = null;
 		
@@ -19,7 +19,7 @@ package code
 		 * 构造函数
 		 * create a [Fold] object
 		 */
-		public function Fold(url:String,name:String) 
+		public function Folder(url:String,name:String) 
 		{
 			_fold = new File(url);
 			
@@ -42,7 +42,7 @@ package code
 			{
 				if (file.isDirectory)
 				{
-					_subFoldList.push(new Fold(file.url,file.name)); continue;
+					_subFoldList.push(new Folder(file.url,file.name)); continue;
 				}
 				
 				_fileList.push(file);
@@ -63,7 +63,7 @@ package code
 				node.appendChild(createFileXml(file));
 			}
 			
-			for each(var fold:Fold in _subFoldList)
+			for each(var fold:Folder in _subFoldList)
 			{
 				node.appendChild(fold.nodeXML);
 			}
