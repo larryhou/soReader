@@ -147,6 +147,8 @@
 				{
 					_deleteFile.deleteFile();
 				}
+				
+				refresh();
 			}
 		}
 		
@@ -176,7 +178,7 @@
 		{
 			e.currentTarget.removeEventListener(e.type,arguments.callee);
 			
-			refresh();
+			
 			
 			Alert.show("删除成功！目录显示已经刷新。","系统消息");
 		}
