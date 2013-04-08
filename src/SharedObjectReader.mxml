@@ -287,13 +287,16 @@
 				for (var key:String in target)
 				{
 					item = indent + key + ":";
-					if (typeof target[key] == "object")
+					if (target[key])
 					{
-						item += "[" + getQualifiedClassName(target[key]).split("::").pop() + "]";
-						
-						if (target[key] && target[key] is ByteArray)
+						if (typeof target[key] == "object")
 						{
-							item += "[" + target[key].length + "]";
+							item += "[" + getQualifiedClassName(target[key]).split("::").pop() + "]";
+							
+							if (target[key] is ByteArray)
+							{
+								item += "[" + target[key].length + "]";
+							}
 						}
 					}
 					
