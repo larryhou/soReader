@@ -254,9 +254,10 @@
 			var file:File = e.currentTarget as File;
 			
 			var cacheName:String = file.name.replace(/\.sol$/i, "");			
-			output.text = "#" + file.name + "#";
+			
 			
 			var so:SharedObject = SharedObject.getLocal(cacheName);
+			output.text = "#" + file.name + "#" + so.size + "#";
 			
 			output.appendText(stringfy(so.data, "  "));
 		}
@@ -288,7 +289,12 @@
 					item = indent + key + ":";
 					if (typeof target[key] == "object")
 					{
-						item += "[" + getQualifiedClassName(target[key]) + "]";
+						item += "[" + getQualifiedClassName(target[key]).split("::").pop() + "]";
+						
+						if (target[key] && target[key] is ByteArray)
+						{
+							item += "[" + target[key].length + "]";
+						}
 					}
 					
 					list.push( item += stringfy(target[key], indent + "    "));
