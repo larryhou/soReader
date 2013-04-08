@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
+                       xmlns:s="library://ns.adobe.com/flex/spark"
+                       xmlns:mx="library://ns.adobe.com/flex/mx"
+					    creationComplete="initApp(event)"
+						 minHeight="600" minWidth="800">
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+		<fx:XMLList id="fileData">			
+			<fold name="#SharedObject"/>						
+		</fx:XMLList>
+	</fx:Declarations>
+	
+	<s:Panel id="container" title="#shared object reader"
+			fontFamily="微软雅黑" fontSize="18"
+			width="100%" height="100%" >	
+		<mx:HBox horizontalGap="5" width="100%" height="100%">
+			<mx:Tree id="fileSystem" width="300" height="100%" 
+				dataProvider="{fileData}" labelField="@name"
+					 horizontalScrollPolicy="on" change="selectChangeHandler(event)" />		
+			<s:TextArea id="output" width="100%" height="100%" fontSize="15" color="0x0000FF" editable="false" />
+		</mx:HBox>
+	</s:Panel>
+	
+	<fx:Script>
+		<![CDATA[
+		import code.Fold;
+		import code.PathConfig;
+		import flash.desktop.NativeApplication;
+		import flash.events.Event;
+		import flash.events.IOErrorEvent;
+		import flash.events.KeyboardEvent;
+		import flash.events.NativeDragEvent;
+		import flash.filesystem.File;
+		import flash.net.SharedObject;
+		import flash.system.Capabilities;
+		import flash.ui.Keyboard;
+		import mx.controls.Alert;
+		import mx.events.CloseEvent;
+		
+		private var _swfSOPath:File = null;
+		private var _appSOPath:File = null;
+		
+		private var _deleteFile:File = null;
+		
+		private function initApp(e:Event):void
+		{			
+			var config:PathConfig = new PathConfig();
+			
+			_appSOPath = new File(config.appSOPath);			
+			_swfSOPath = new File(config.swfSOPath);			
+			
+			refreshTreeDisplay();
+			
+			var so:SharedObject = SharedObject.getLocal("init_so");
+			
+			var app:NativeApplication = NativeApplication.nativeApplication;
+			
+			so.data.app = app.applicationID;
+			so.data.msg = "Hello World!";
+			so.data.author = "Larry H."
+			so.flush();	
+			
+			addEventListener(KeyboardEvent.KEY_UP, keyUpHandler);
+		}
+		
+		/**
+		 * 键盘事件
+		 * @param	event
+		 */
+		override protected function keyUpHandler(event:KeyboardEvent):void 
+		{		
+			super.keyUpHandler(event);
+			
+			trace(event.keyCode);
+			
+			switch(event.keyCode)
+			{
+				case Keyboard.F5:
+				{
+					refreshTreeDisplay("refresh complete");
+					break;
+				}
+				
+				case Keyboard.DELETE:
+				{
+					deleteFile();
+					break;
+				}
+			}
+		}
+		
+		/**
+		 * 删除文件
+		 */
+		private function deleteFile():void
+		{
+			if (fileSystem.selectedItem == null) return;
+			
+			var file:File = new File(fileSystem.selectedItem.@url);
+			if (file.exists == false) return;
+			
+			_deleteFile = file;
+			
+			var type:String = "文件";			
+			var isFold:Boolean = (file.extension == null);
+			isFold ||= (file.extension.toLowerCase() != "sol");
+			
+			if (isFold)
+			{
+				type = "目录";
+			}
+			
+			var buttonFlags:int = Alert.OK | Alert.CANCEL;
+			var msg:String = "点击”确定“将会删除" + type +"<" + file.nativePath + ">，";
+			if (isFold) msg += "删除目录将会导致目录该目录里面的所有文件也会被删除！";
+			msg += "点击”取消“则保留这个" + type + "。";
+			
+			Alert.show(msg, "删除" + type, buttonFlags, null, closeAlertHandler);
+		}
+		
+		/**
+		 * 关闭对话框
+		 * @param	e
+		 */
+		private function closeAlertHandler(e:CloseEvent):void
+		{
+			if (e.detail == Alert.OK)
+			{
+				_deleteFile.addEventListener(Event.COMPLETE, deleteCompleteHandler);
+				_deleteFile.addEventListener(IOErrorEvent.IO_ERROR, deleteErrorHandler);
+				
+				if(_deleteFile.isDirectory)
+				{
+					_deleteFile.deleteDirectoryAsync(true);
+				}
+				else
+				{
+					_deleteFile.deleteFileAsync();
+				}
+			}
+		}
+		
+		/**
+		 * 删除文件出错
+		 * @param	e
+		 */
+		private function deleteErrorHandler(e:IOErrorEvent):void 
+		{
+			e.currentTarget.removeEventListener(e.type, arguments.callee);
+			
+			var msg:String = "删除文件失败！\n";
+			msg += e.text + "\n";
+			
+			msg += "您可以尝试手动删除！文件所在目录为：\n";
+			var file:File = new File(fileSystem.selectedItem.@url);
+			msg += file.parent.nativePath;
+			
+			Alert.show(msg, "警告消息");
+		}
+		
+		/**
+		 * 删除文件成功
+		 * @param	e
+		 */
+		private function deleteCompleteHandler(e:Event):void 
+		{
+			e.currentTarget.removeEventListener(e.type,arguments.callee);
+			
+			refreshTreeDisplay();
+			
+			Alert.show("删除成功！目录显示已经刷新。","系统消息");
+		}
+		
+		/**
+		 * 显示删除文件
+		 */
+		private function showDeleteFile():void
+		{
+			output.text = "delete file \n";
+			
+			if (fileSystem.selectedItem == null)
+			{
+				output.text = "您没有选中文件！";
+				return;
+			}	
+			
+			var file:File = new File(fileSystem.selectedItem.@url);
+			if (file.exists == false)
+			{
+				output.text = file.nativePath + " 不存在！";
+				return;
+			}
+			
+			var msg:String = "本工具不能直接删除您的SO缓存文件，如需删除请手动操作，SO文件所在目录为：\n";
+			msg += file.parent.nativePath;
+			
+			output.text = msg;
+		}
+		
+		/**
+		 * 重新生成目录树
+		 */
+		private function refreshTreeDisplay(msg:String = ""):void
+		{
+			output.text = "Press the key F5, if you wanna refresh file tree display! Enjoy it!\t";
+			output.appendText(msg + "\n");
+			
+			delete fileData.fold;
+			
+			var list:Array = _swfSOPath.getDirectoryListing();
+			var fold:Fold = null;
+			for each(var file:File in list)
+			{				
+				fold = new Fold(file.url, file.name);
+				fileData.appendChild(fold.nodeXML);
+			}
+		}
+		
+		/**
+		 * 目录树选择发生改变
+		 * @param	e
+		 */
+		private function selectChangeHandler(e:Event):void
+		{		
+			output.text = "";
+			
+			var foldKey:String = fileSystem.selectedItem.@isfold;
+			if (foldKey == "" || foldKey.toLowerCase() == "true") return;			
+			
+			var file:File = new File(fileSystem.selectedItem.@url);
+			
+			file.addEventListener(Event.COMPLETE, copyCompleteHandler);
+			file.addEventListener(IOErrorEvent.IO_ERROR, errorHandler);
+			file.copyToAsync(_appSOPath.resolvePath(file.name), true);
+		}
+		
+		/**
+		 * 拷贝完成
+		 * @param	e
+		 */
+		private function copyCompleteHandler(e:Event):void 
+		{		
+			var file:File = e.currentTarget as File;
+			
+			var cacheName:String = file.name.replace(/\.sol$/i, "");			
+			output.text = "Cache name is <" + cacheName + ">\n\n";
+			
+			var so:SharedObject = SharedObject.getLocal(cacheName);
+			//so.data.arthur = "Larry H.";
+			
+			for (var key:String in so.data)
+			{
+				//output.appendText(key + " -> " + so.data[key] + "\n");
+			}
+			
+			output.appendText(printObject(so.data));
+		}
+		
+		/**
+		 * 拷贝出错
+		 * @param	e
+		 */
+		private function errorHandler(e:IOErrorEvent):void 
+		{
+			output.text = e.toString();
+		}
+		
+		/**
+		 * 打印对象
+		 * @param	target
+		 */
+		private function printObject(target:Object,indent:String = "",key:String = ""):String
+		{
+			if (target == null) return "";
+			const SIMPLE_DATA_LIST:Array = ["string", "number", "boolean"]
+			
+			var flag:Boolean = target is Array;
+			var type:String = flag? "Array" : "Object";
+			var deltaIndent:String = "   ";
+			var prefix:String = indent + key + "["+ type+"]";
+			var output:String = prefix + "\r\n" + indent + (flag?"[":"{") + "\r\n";
+			var item:Object = null;
+			
+			key = null;
+			for (key in target)
+			{
+				item = target[key];
+				if (SIMPLE_DATA_LIST.indexOf(typeof(item)) != -1)
+				{
+					output += indent + deltaIndent + key + " = " + item + "\r\n";
+					continue;
+				}
+				
+				output += printObject(item, indent + deltaIndent, key);
+			}
+			
+			if (key == null) return prefix + " = "+(flag? "[]" : "{}")+"\r\n";
+			output += indent + (flag? "]":"}")+ "\r\n";
+			
+			return output;
+		}	
+		
+		]]>
+	</fx:Script>
+	
+</s:WindowedApplication>
